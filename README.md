@@ -109,3 +109,62 @@ Use free tiers first, then upgrade only when needed:
 5. Add a React Native client hitting these endpoints.
 
 This gives you a realistic path to launch quickly, then evolve into a true AI shopping broker platform.
+
+## 7) Live test now (end-to-end)
+
+### Fastest smoke test (one command)
+
+```bash
+bash scripts/live_test.sh
+```
+
+This script will:
+1. Start the API server.
+2. Call `/health`.
+3. Create a sample ad.
+4. List ads.
+5. Run `/search` and print JSON responses.
+
+### Manual live test (step-by-step)
+
+Terminal A:
+```bash
+python3 app.py
+```
+
+Terminal B:
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/ads \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title":"50% Off Coffee",
+    "description":"Local cafe weekend offer",
+    "category":"food",
+    "owner_name":"Cafe One",
+    "city":"Austin",
+    "price":10,
+    "discount_percent":50,
+    "source_url":"https://cafe.example",
+    "ad_type":"business"
+  }'
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query":"cheap coffee discounts",
+    "city":"Austin",
+    "budget":20,
+    "limit":5
+  }'
+```
+
+### Test from a real phone (iOS/Android)
+- Keep backend running on your laptop.
+- Expose localhost with a tunnel tool (for example `ngrok` or `cloudflared`).
+- Open the tunnel URL from your phone browser or your React Native app and call the same endpoints.
