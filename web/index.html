@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Ads Live Prototype</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 980px; margin: 0 auto; padding: 20px; background:#f8f9fb; }
+    h1 { margin-bottom: 8px; }
+    .muted { color: #566; margin-top:0; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card h2 { margin-top:0; font-size: 18px; }
+    label { display:block; margin-top:8px; font-size: 13px; color:#455; }
+    input, textarea, button { width:100%; box-sizing:border-box; padding:9px; margin-top:4px; border:1px solid #c8cfda; border-radius:8px; }
+    textarea { min-height: 70px; }
+    button { background:#2255e5; color:white; font-weight:700; cursor:pointer; }
+    button:hover { background:#1a44b9; }
+    #results, #feed { margin-top:16px; display:grid; gap:10px; }
+    .result { border:1px solid #d7dfea; border-radius:8px; padding:10px; background:#fff; }
+    .pill { display:inline-block; font-size:11px; background:#eef3ff; color:#224; border-radius:999px; padding:2px 8px; margin-right:6px; }
+    .row { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>AI Ads — Live Prototype</h1>
+  <p class="muted">Post ads for free, then search like ChatGPT for deals and nearby offers.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>1) Post an Ad</h2>
+      <form id="adForm">
+        <label>Title<input name="title" required value="Weekend 30% Off Haircut" /></label>
+        <label>Description<textarea name="description" required>Premium salon package discount.</textarea></label>
+        <div class="row">
+          <label>Category<input name="category" value="beauty" /></label>
+          <label>City<input name="city" value="Austin" /></label>
+        </div>
+        <div class="row">
+          <label>Price<input type="number" name="price" value="100" /></label>
+          <label>Discount %<input type="number" name="discount_percent" value="30" /></label>
+        </div>
+        <div class="row">
+          <label>Owner<input name="owner_name" value="Glow Studio" /></label>
+          <label>Ad Type
+            <input name="ad_type" value="business" />
+          </label>
+        </div>
+        <label>Source URL<input name="source_url" value="https://example.com/deal" /></label>
+        <button type="submit">Post Ad</button>
+      </form>
+      <div id="adStatus"></div>
+    </section>
+
+    <section class="card">
+      <h2>2) AI Search</h2>
+      <form id="searchForm">
+        <label>What are you looking for?
+          <input name="query" required value="cheap haircut discounts" />
+        </label>
+        <div class="row">
+          <label>City<input name="city" value="Austin" /></label>
+          <label>Budget<input type="number" name="budget" value="120" /></label>
+        </div>
+        <label>Limit<input type="number" name="limit" value="10" /></label>
+        <button type="submit">Search Offers</button>
+      </form>
+      <div id="results"></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px;">
+    <h2>3) Live Feed (All Posted Ads)</h2>
+    <button id="refreshFeed">Refresh Feed</button>
+    <div id="feed"></div>
+  </section>
+
+  <script>
+    const adForm = document.getElementById('adForm');
+    const searchForm = document.getElementById('searchForm');
+    const adStatus = document.getElementById('adStatus');
+    const results = document.getElementById('results');
+    const feed = document.getElementById('feed');
+    const refreshBtn = document.getElementById('refreshFeed');
+
+    function cardHTML(item) {
+      const source = item.source || 'local';
+      const city = item.city || 'global';
+      const discount = item.discount_percent || 0;
+      const price = item.price ?? 'N/A';
+      const score = typeof item.score === 'number' ? item.score.toFixed(2) : 'n/a';
+      return `
+        <div class="result">
+          <span class="pill">${source}</span>
+          <span class="pill">${city}</span>
+          <strong>${item.title || 'Untitled'}</strong>
+          <div>${item.description || ''}</div>
+          <div><b>Price:</b> ${price} | <b>Discount:</b> ${discount}% | <b>Score:</b> ${score}</div>
+        </div>
+      `;
+    }
+
+    adForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = Object.fromEntries(new FormData(adForm).entries());
+      payload.price = Number(payload.price || 0);
+      payload.discount_percent = Number(payload.discount_percent || 0);
+
+      const res = await fetch('/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      adStatus.textContent = res.ok ? `✅ Ad created with id ${data.ad_id}` : `❌ ${data.error || 'Error'}`;
+      await loadFeed();
+    });
+
+    searchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = Object.fromEntries(new FormData(searchForm).entries());
+      payload.budget = Number(payload.budget || 0);
+      payload.limit = Number(payload.limit || 10);
+
+      const res = await fetch('/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        results.innerHTML = `<div class="result">❌ ${data.error || 'Search failed'}</div>`;
+        return;
+      }
+
+      results.innerHTML = data.results.length
+        ? data.results.map(cardHTML).join('')
+        : '<div class="result">No offers found yet.</div>';
+    });
+
+    async function loadFeed() {
+      const res = await fetch('/ads');
+      const data = await res.json();
+      feed.innerHTML = data.ads?.length
+        ? data.ads.map(cardHTML).join('')
+        : '<div class="result">No ads posted yet.</div>';
+    }
+
+    refreshBtn.addEventListener('click', loadFeed);
+    loadFeed();
+  </script>
+</body>
+</html>
