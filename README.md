@@ -168,3 +168,22 @@ curl -X POST http://127.0.0.1:8000/search \
 - Keep backend running on your laptop.
 - Expose localhost with a tunnel tool (for example `ngrok` or `cloudflared`).
 - Open the tunnel URL from your phone browser or your React Native app and call the same endpoints.
+
+## 8) Live web prototype UI
+
+You now have a basic web UI served by the backend.
+
+1. Start server:
+```bash
+python3 app.py
+```
+2. Open:
+```text
+http://127.0.0.1:8000/
+```
+3. Use the page to:
+- Post ads for free
+- Search offers in AI-style text
+- View live feed of all posted ads
+
+This UI is the easiest way to demo the prototype before building the full React Native mobile app.
